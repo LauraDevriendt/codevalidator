@@ -1,5 +1,6 @@
 package learning.com.codevalidator.controllers;
 
+import io.swagger.annotations.ApiOperation;
 import learning.com.codevalidator.models.FileInfo;
 import learning.com.codevalidator.services.FileInfoService;
 import learning.com.codevalidator.services.FileQualityService;
@@ -21,6 +22,7 @@ public class QualityApi {
         this.fileInfoService = fileInfoService;
     }
 
+    @ApiOperation( value = "getting all the files", notes = "NOTE that these are not validated yet")
     @GetMapping("/")
     public Map<Integer, String> getFiles() {
         return fileService.getFiles();

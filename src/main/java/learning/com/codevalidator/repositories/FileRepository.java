@@ -12,8 +12,10 @@ public class FileRepository {
 
     public FileRepository() {
         Map<Integer, String> files = new HashMap<>();
-        files.put(1, "src/main/resources/java/test.java");
-        files.put(2, "src/main/resources/java/java-collections-cheat-sheet.pdf");
+        files.put(1, "src/main/resources/java/App.java");
+        files.put(2, "src/main/resources/java/CompoundCost.java");
+        files.put(3, "src/main/resources/java/Order.java");
+        files.put(4, "src/main/resources/java/java-collections-cheat-sheet.pdf");
         this.files = files;
     }
 

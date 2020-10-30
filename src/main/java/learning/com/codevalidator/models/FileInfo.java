@@ -6,14 +6,25 @@ public class FileInfo {
     private File file;
     private Integer numOfLines;
     private Integer numOfIfElse;
-    private Integer numOfImports;
+    private Integer numOfNotExclImports;
+    private Integer numOfOtherUsedClasses;
 
 
-    public FileInfo(File file, Integer numOfLines, Integer numOfIfElse, Integer numOfImports) {
+    public FileInfo(File file, Integer numOfLines, Integer numOfIfElse, Integer numOfImports, Integer numOfOtherUsedClasses) {
         this.file = file;
         this.numOfLines = numOfLines;
         this.numOfIfElse = numOfIfElse;
-        this.numOfImports = numOfImports;
+        this.numOfNotExclImports = numOfImports;
+        this.numOfOtherUsedClasses = numOfOtherUsedClasses;
+
+    }
+
+    public Integer getNumOfOtherUsedClasses() {
+        return numOfOtherUsedClasses;
+    }
+
+    public void setNumOfOtherUsedClasses(Integer numOfOtherUsedClasses) {
+        this.numOfOtherUsedClasses = numOfOtherUsedClasses;
     }
 
     public Integer getNumOfLines() {
@@ -32,12 +43,12 @@ public class FileInfo {
         this.numOfIfElse = numOfIfElse;
     }
 
-    public Integer getNumOfImports() {
-        return numOfImports;
+    public Integer getNumOfNotExclImports() {
+        return numOfNotExclImports;
     }
 
-    public void setNumOfImports(Integer numOfImports) {
-        this.numOfImports = numOfImports;
+    public void setNumOfNotExclImports(Integer numOfNotExclImports) {
+        this.numOfNotExclImports = numOfNotExclImports;
     }
 
     public File getFile() {
@@ -54,7 +65,7 @@ public class FileInfo {
                 "file=" + file.getName() +
                 ", numOfLines=" + numOfLines +
                 ", numOfIfElse=" + numOfIfElse +
-                ", numOfImports=" + numOfImports +
+                ", numOfImports=" + numOfNotExclImports +
                 '}';
     }
 }

@@ -6,36 +6,34 @@ import com.github.javaparser.ast.stmt.Statement;
 import com.google.common.io.Files;
 import learning.com.codevalidator.Exceptions.NoValidFileException;
 import learning.com.codevalidator.models.FileInfo;
+import learning.com.codevalidator.models.MainClass;
 import learning.com.codevalidator.repositories.FileInfoRepository;
 import learning.com.codevalidator.repositories.FileRepository;
+import org.apache.commons.io.FilenameUtils;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
-import java.util.stream.Collectors;
+import java.util.*;
 
-
-
+// @todo: assisters class maken (main and specific ones) this class will extend from the main
 @Service
 public class FileQualityService {
 
-    enum excludedImports {
-        JAVA ("java."),
-        SUN ("com.sun."),
-        SPRING("org.springframework"),
-        JAVAX ("javax."),
-        JDK ("jdk."),
-        W3C ("org.w3c"),
-        XML ("org.xml")
-        ;
+    // EXCLUDE THE DOTS IN PACKAGEPREFIX
+    enum ExcludedImports {
+        JAVA("java"),
+        SUN("comsun"),
+        SPRING("orgspringframework"),
+        JAVAX("javax"),
+        JDK("jdk"),
+        W3C("orgw3c"),
+        XML("orgxml");
 
         private String packagePrefix;
 
-        excludedImports(String packagePrefix) {
+        ExcludedImports(String packagePrefix) {
+            this.packagePrefix = packagePrefix;
         }
 
         public String getPackagePrefix() {
@@ -51,7 +49,62 @@ public class FileQualityService {
         this.fileInfoRepository = fileInfoRepository;
     }
 
-    public boolean validateFile(File file) {
+    public Map<Integer, String> getFiles() {
+
+        return fileRepository.getFiles();
+    }
+
+    public FileInfo getFileInfo(Integer id) throws FileNotFoundException {
+        File file = new File(fileRepository.getFile(id));
+        if (this.validateFile(file)) {
+            return convertToFileInfo(file);
+        }
+        throw new FileNotFoundException("file is not found");
+    }
+
+    public FileInfo convertToFileInfo(File file) throws FileNotFoundException {
+        return new FileInfo(
+                file, this.getNumOfLines(file),
+                this.getNumOfIfElse(file),
+                this.getNumOfNotExcludedImports(file),
+                this.getNumOfOtherUsedClasses(file));
+    }
+
+    public FileInfo gatherFileInfo(File file) throws FileNotFoundException {
+        if (this.validateFile(file)) {
+            int numOfLines = this.getNumOfLines(file);
+            int numOfIfElse = this.getNumOfIfElse(file);
+            int numOfImports = this.getNumOfNotExcludedImports(file);
+            int numOfOtherUsedClasses = this.getNumOfOtherUsedClasses(file);
+            FileInfo fileInfo = new FileInfo(file, numOfLines,
+                    numOfIfElse, numOfImports, numOfOtherUsedClasses);
+
+            return fileInfoRepository.addFileInfo(fileInfo);
+
+        }
+        throw new FileNotFoundException("file is not found");
+    }
+
+    //@todo: no nested classes that exist inside a main class are not in the classlist
+    //@todo: only the past files classnames are in the list needs to be replace by complete classList
+    private int getNumOfOtherUsedClasses(File inputFile) throws FileNotFoundException {
+      Scanner fileReader = new Scanner(inputFile);
+        String classNameInputFile = this.getMainClass(inputFile).getName();
+        Set<String> otherClassNames = new HashSet<>();
+      while (fileReader.hasNextLine()){
+          String line = fileReader.nextLine();
+          for (String filePath : fileRepository.getFiles().values()) {
+              File file = new File(filePath);
+              String className = this.getMainClass(file).getName();
+              if (rightExtension(file) & line.contains(className) & !classNameInputFile.equals(className)) {
+                 otherClassNames.add(className);
+              }
+          }
+      }
+     return otherClassNames.size();
+    }
+
+    private boolean validateFile(File file) {
 
         if (file.isFile() & rightExtension(file)) {
             return true;
@@ -76,13 +129,27 @@ public class FileQualityService {
         return numOflines;
     }
 
-    private int getNumOfImports(File file) throws FileNotFoundException {
+    private int getNumOfNotExcludedImports(File file) throws FileNotFoundException {
         Scanner fileReader = new Scanner(file);
-        int numOfImports = 0;
-        while (fileReader.hasNextLine()) {
-            String str = fileReader.nextLine();
-            List<String> imports = Arrays.stream(str.split(" ")).filter(word -> word.equals("import")).collect(Collectors.toList());
-            numOfImports += imports.size();
+        int numOfNotExclImports = 0;
+        while (fileReader.hasNext()) {
+            String str = fileReader.next();
+            if (str.equals("import")) {
+                String importPackage = fileReader.next().replace(".", "");
+                numOfNotExclImports = incrementForNotExcludedImport(importPackage, numOfNotExclImports);
+            } else {
+                fileReader.next();
+            }
+
+        }
+        return numOfNotExclImports;
+    }
+
+    private Integer incrementForNotExcludedImport(String importPackage, Integer numOfImports) {
+        for (ExcludedImports prefix : ExcludedImports.values()) {
+            if (importPackage.startsWith(prefix.getPackagePrefix())) {
+                numOfImports++;
+            }
         }
         return numOfImports;
     }
@@ -105,8 +172,13 @@ public class FileQualityService {
         return numOfConditions;
     }
 
+    private MainClass getMainClass(File file){
+        String className = FilenameUtils.removeExtension(file.getName());
+        return new MainClass(className);
+    }
+
     // @todo ask Nicholas
-    public int calculateCyclicComplexity(Node node){
+    public int calculateCyclicComplexity(Node node) {
         int complexity = 0;
         for (IfStmt ifStmt : node.getChildNodesByType(IfStmt.class)) {
             // We found an "if" - cool, add one.
@@ -128,43 +200,10 @@ public class FileQualityService {
     }
 
     private static void printLine(Node node) {
-        node.getRange().ifPresent(r -> System.out.println("line:"+r.begin.line));
+        node.getRange().ifPresent(r -> System.out.println("line:" + r.begin.line));
     }
 
 
-
-    public Map<Integer, String> getFiles() {
-
-        return fileRepository.getFiles();
-    }
-
-    public FileInfo getFileInfo(Integer id) throws FileNotFoundException {
-        File file = new File(fileRepository.getFile(id));
-        if (this.validateFile(file)) {
-            return convertToFileInfo(file);
-        }
-        throw new FileNotFoundException("file is not found");
-    }
-
-    public FileInfo convertToFileInfo(File file) throws FileNotFoundException {
-        return new FileInfo(
-                file, this.getNumOfLines(file),
-                this.getNumOfIfElse(file),
-                this.getNumOfImports(file));
-
-    }
-
-    public FileInfo gatherFileInfo(File file) throws FileNotFoundException {
-        if (this.validateFile(file)) {
-            int numOfLines = this.getNumOfLines(file);
-            int numOfIfElse = this.getNumOfIfElse(file);
-            int numOfImports = this.getNumOfImports(file);
-            FileInfo fileInfo = new FileInfo(file,numOfLines,
-                    numOfIfElse,numOfImports);
-            return fileInfoRepository.addFileInfo(fileInfo);
-        }
-        throw new FileNotFoundException("file is not found");
-    }
 
 
 }
