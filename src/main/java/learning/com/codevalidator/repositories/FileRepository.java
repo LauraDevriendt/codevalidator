@@ -2,6 +2,7 @@ package learning.com.codevalidator.repositories;
 
 import org.springframework.stereotype.Repository;
 
+import java.io.FileNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,7 +28,13 @@ public class FileRepository {
         this.files = files;
     }
 
-    public String getFile(Integer id) {
+    public String getFile(Integer id) throws FileNotFoundException {
+        if(this.files.get(id) == null){
+            throw new FileNotFoundException("File is not found");
+        }
         return this.files.get(id);
     }
+
+
+
 }

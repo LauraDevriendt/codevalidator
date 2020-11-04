@@ -56,10 +56,8 @@ public class FileQualityService {
 
     public FileInfo getFileInfo(Integer id) throws FileNotFoundException {
         File file = new File(fileRepository.getFile(id));
-        if (this.validateFile(file)) {
-            return convertToFileInfo(file);
-        }
-        throw new FileNotFoundException("file is not found");
+        this.validateFile(file);
+        return convertToFileInfo(file);
     }
 
     public FileInfo convertToFileInfo(File file) throws FileNotFoundException {
@@ -71,37 +69,34 @@ public class FileQualityService {
     }
 
     public FileInfo gatherFileInfo(File file) throws FileNotFoundException {
-        if (this.validateFile(file)) {
-            int numOfLines = this.getNumOfLines(file);
-            int numOfIfElse = this.getNumOfIfElse(file);
-            int numOfImports = this.getNumOfNotExcludedImports(file);
-            int numOfOtherUsedClasses = this.getNumOfOtherUsedClasses(file);
-            FileInfo fileInfo = new FileInfo(file, numOfLines,
-                    numOfIfElse, numOfImports, numOfOtherUsedClasses);
+        this.validateFile(file);
+        int numOfLines = this.getNumOfLines(file);
+        int numOfIfElse = this.getNumOfIfElse(file);
+        int numOfImports = this.getNumOfNotExcludedImports(file);
+        int numOfOtherUsedClasses = this.getNumOfOtherUsedClasses(file);
+        FileInfo fileInfo = new FileInfo(file, numOfLines,
+                numOfIfElse, numOfImports, numOfOtherUsedClasses);
+        return fileInfoRepository.addFileInfo(fileInfo);
 
-            return fileInfoRepository.addFileInfo(fileInfo);
-
-        }
-        throw new FileNotFoundException("file is not found");
     }
 
     //@todo: no nested classes that exist inside a main class are not in the classlist
     //@todo: only the past files classnames are in the list needs to be replace by complete classList
-    private int getNumOfOtherUsedClasses(File inputFile) throws FileNotFoundException {
-      Scanner fileReader = new Scanner(inputFile);
+    public int getNumOfOtherUsedClasses(File inputFile) throws FileNotFoundException {
+        Scanner fileReader = new Scanner(inputFile);
         String classNameInputFile = this.getMainClass(inputFile).getName();
         Set<String> otherClassNames = new HashSet<>();
-      while (fileReader.hasNextLine()){
-          String line = fileReader.nextLine();
-          for (String filePath : fileRepository.getFiles().values()) {
-              File file = new File(filePath);
-              String className = this.getMainClass(file).getName();
-              if (rightExtension(file) & line.contains(className) & !classNameInputFile.equals(className)) {
-                 otherClassNames.add(className);
-              }
-          }
-      }
-     return otherClassNames.size();
+        while (fileReader.hasNextLine()) {
+            String line = fileReader.nextLine();
+            for (String filePath : fileRepository.getFiles().values()) {
+                File file = new File(filePath);
+                String className = this.getMainClass(file).getName();
+                if (rightExtension(file) & line.contains(className) & !classNameInputFile.equals(className)) {
+                    otherClassNames.add(className);
+                }
+            }
+        }
+        return otherClassNames.size();
     }
 
     private boolean validateFile(File file) {
@@ -129,6 +124,7 @@ public class FileQualityService {
         return numOflines;
     }
 
+
     private int getNumOfNotExcludedImports(File file) throws FileNotFoundException {
         Scanner fileReader = new Scanner(file);
         int numOfNotExclImports = 0;
@@ -136,7 +132,9 @@ public class FileQualityService {
             String str = fileReader.next();
             if (str.equals("import")) {
                 String importPackage = fileReader.next().replace(".", "");
-                numOfNotExclImports = incrementForNotExcludedImport(importPackage, numOfNotExclImports);
+                if(isNotExcludedImport(importPackage)){
+                    numOfNotExclImports++;
+                }
             } else {
                 fileReader.next();
             }
@@ -145,13 +143,13 @@ public class FileQualityService {
         return numOfNotExclImports;
     }
 
-    private Integer incrementForNotExcludedImport(String importPackage, Integer numOfImports) {
+    public Boolean isNotExcludedImport(String importPackage) {
         for (ExcludedImports prefix : ExcludedImports.values()) {
             if (importPackage.startsWith(prefix.getPackagePrefix())) {
-                numOfImports++;
+                return false;
             }
         }
-        return numOfImports;
+        return true;
     }
 
     private int getNumOfIfElse(File file) throws FileNotFoundException {
@@ -172,7 +170,7 @@ public class FileQualityService {
         return numOfConditions;
     }
 
-    private MainClass getMainClass(File file){
+    private MainClass getMainClass(File file) {
         String className = FilenameUtils.removeExtension(file.getName());
         return new MainClass(className);
     }
@@ -202,8 +200,6 @@ public class FileQualityService {
     private static void printLine(Node node) {
         node.getRange().ifPresent(r -> System.out.println("line:" + r.begin.line));
     }
-
-
 
 
 }
